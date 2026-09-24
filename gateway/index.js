@@ -16,10 +16,11 @@ app.use(cors({
     origin: (origin, callback) => {
         const allowedOrigins = (process.env.FRONTEND_URL || "")
             .split(",")
-            .map((value) => value.trim())
+            .map((value) => value.trim().replace(/\/+$/, ""))
             .filter(Boolean)
+        const requestOrigin = origin?.replace(/\/+$/, "")
 
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!requestOrigin || allowedOrigins.includes(requestOrigin)) {
             return callback(null, true)
         }
 
