@@ -71,7 +71,7 @@ _Link expires in 10 minutes._`
         console.log(error)
          return {
             ...state,
-            aiResponse:error?.data?.message || "failed to generate ppt"
+            aiResponse:error?.data?.message || "Failed to generate ppt due to API error <br> Please try again later",
         }
        
 

@@ -60,7 +60,7 @@ return {
        console.log(error)
          return {
             ...state,
-            aiResponse:error?.data?.message || "failed to generate image"
+            aiResponse:error?.data?.message || "Failed to generate image due to API error <br> Please try again later",
         }
     }
    

@@ -4,6 +4,11 @@ import User from "../models/user.model.js"
 import { createConnection } from "mongoose"
 import redis from "../../../shared/redis/redis.js"
 
+const isHttpsRequest = (req) =>
+    req.secure ||
+    req.get("x-forwarded-proto") === "https" ||
+    process.env.NODE_ENV === "production"
+
 export const login = async (req, res) => {
     try {
         const { token } = req.body
@@ -39,10 +44,13 @@ export const login = async (req, res) => {
 
 
 
+        const isHttps = isHttpsRequest(req)
+
         res.cookie("session", sessionId, {
             httpOnly: true,
-            secure: false,
-            sameSite: "strict",
+            secure: isHttps,
+            sameSite: isHttps ? "none" : "lax",
+            path: "/",
             maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
@@ -59,7 +67,13 @@ export const logOut = async (req, res) => {
         const sessionId = req.cookies?.session
         await redis.del(`session-${sessionId}`)
 
-        res.clearCookie("session")
+        const isHttps = isHttpsRequest(req)
+        res.clearCookie("session", {
+            httpOnly: true,
+            secure: isHttps,
+            sameSite: isHttps ? "none" : "lax",
+            path: "/"
+        })
         return res.status(200).json({ message: "logout successfully" })
     } catch (error) {
         return res.status(500).json({ message: `logout error ${error}` })

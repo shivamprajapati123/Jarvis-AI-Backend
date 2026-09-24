@@ -67,7 +67,7 @@ _Link expires in 10 minutes._`
        console.log(error)
          return {
             ...state,
-            aiResponse:error?.data?.message || "failed to generate pdf"
+            aiResponse:error?.data?.message || "Failed to generate pdf due to API error <br> Please try again later",
         }
     }
 }
