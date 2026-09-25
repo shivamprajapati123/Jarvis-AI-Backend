@@ -1,14 +1,41 @@
+import "dotenv/config"
 import express from "express"
-import dotenv from "dotenv"
 import proxy from "express-http-proxy"
-dotenv.config()
 import cors from "cors"
 import cookieParser from "cookie-parser"
 import { getCurrentUser } from "./controllers/user.controller.js"
 import protect from "./middleware/auth.middleware.js"
 import { proxyWithHeader } from "./utils/proxyWithHeader.js"
 import morgan from "morgan"
-const port =process.env.PORT
+
+const port = parseInt(process.env.PORT || "8000", 10)
+if (isNaN(port) || port < 1 || port > 65535) {
+    throw new Error("PORT must be a valid number between 1 and 65535")
+}
+
+const serviceUrl = (name) => {
+    const value = process.env[name]
+
+    if (!value) {
+        throw new Error(`${name} is required`)
+    }
+
+    let parsedUrl
+    try {
+        parsedUrl = new URL(value)
+    } catch {
+        throw new Error(`${name} must be a valid service URL`)
+    }
+
+    if (process.env.NODE_ENV === "production" &&
+        ["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname)) {
+        throw new Error(`${name} cannot point to localhost in production`)
+    }
+
+    return value.replace(/\/+$/, "")
+}
+
+const authService = serviceUrl("AUTH_SERVICE")
 
 const app=express()
 app.set("trust proxy", 1)
@@ -54,7 +81,7 @@ app.use(cookieParser())
 app.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" })
 })
-app.use("/api/auth",proxy(process.env.AUTH_SERVICE, proxyOptions("Auth")))
+app.use("/api/auth",proxy(authService, proxyOptions("Auth")))
 app.use("/api/chat",protect,proxyWithHeader(process.env.CHAT_SERVICE, proxyOptions("Chat")))
 app.use("/api/agent",protect,proxyWithHeader(process.env.AGENT_SERVICE, proxyOptions("Agent")))
 app.use("/api/billing",protect,proxyWithHeader(process.env.BILLING_SERVICE, proxyOptions("Billing")))
@@ -65,4 +92,14 @@ app.get("/",(req,res)=>{
 
 app.listen(port,()=>{
     console.log(`gateway started at ${port}`)
+})
+
+process.on("unhandledRejection", (reason, promise) => {
+    console.error("Unhandled Rejection at:", promise, "reason:", reason)
+    process.exit(1)
+})
+
+process.on("uncaughtException", (error) => {
+    console.error("Uncaught Exception:", error)
+    process.exit(1)
 })
