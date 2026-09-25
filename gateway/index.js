@@ -90,9 +90,35 @@ app.get("/",(req,res)=>{
     res.json({message:"hello from gateway service"})
 })
 
-app.listen(port,()=>{
+app.listen(port, () => {
     console.log(`gateway started at ${port}`)
+    startKeepAlivePing()
 })
+
+const startKeepAlivePing = () => {
+    const servicesToPing = [
+        process.env.AUTH_SERVICE,
+        process.env.CHAT_SERVICE,
+        process.env.AGENT_SERVICE,
+        process.env.BILLING_SERVICE,
+        process.env.GATEWAY_SERVICE
+    ].filter(Boolean)
+
+    if (servicesToPing.length === 0) return
+
+    const PING_INTERVAL = 10 * 60 * 1000 // 10 minutes
+
+    setInterval(() => {
+        servicesToPing.forEach(async (baseUrl) => {
+            try {
+                const url = `${baseUrl.replace(/\/+$/, "")}/health`
+                await fetch(url)
+            } catch (err) {
+                console.error(`Keep-alive ping failed for ${baseUrl}:`, err.message)
+            }
+        })
+    }, PING_INTERVAL)
+}
 
 process.on("unhandledRejection", (reason, promise) => {
     console.error("Unhandled Rejection at:", promise, "reason:", reason)
