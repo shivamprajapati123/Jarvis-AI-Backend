@@ -12,6 +12,9 @@ app.set("trust proxy", 1)
 app.use(express.json())
 app.use(cookieParser())
 app.use("/",router)
+app.get("/health", (req,res)=>{
+    res.status(200).json({status:"ok"})
+})
 app.get("/",(req,res)=>{
     res.json({message:"hello from auth"})
 })
