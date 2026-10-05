@@ -1,9 +1,11 @@
 import express from "express"
 import { agent } from "../controllers/agent.controller.js"
+import { downloadGeneratedFile } from "../controllers/generatedFile.controller.js"
 import multer from "../config/multer.js"
 
 const router=express.Router()
 
+router.get("/download/:fileId",downloadGeneratedFile)
 router.post("/chat",multer.single("file"),agent)
 
 export default router

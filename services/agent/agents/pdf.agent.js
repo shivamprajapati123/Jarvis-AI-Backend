@@ -1,12 +1,11 @@
 import { getModel } from "../config/llmModels.js"
 import { generatePdf } from "../utils/generatePdf.js"
-import { getFromS3 } from "../utils/getFromS3.js"
-import { uploadToS3 } from "../utils/uploadToS3.js"
+import { registerGeneratedFile } from "../utils/generatedFiles.js"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
 export const pdfAgent=async (state) => {
     try {
-        const rate=await checkAgentLimit(state.userId,"pdf")
+        await checkAgentLimit(state.userId,"pdf")
         
         
         const llm=await getModel("pdf")
@@ -43,14 +42,18 @@ ${state.prompt}
 
         const res=await llm.invoke(prompt)
         const data=JSON.parse(res.content)
-       await deductCredits(state.userId,"pdf")
         
         const pdfBuffer=await generatePdf(data)
 
         const filename=`pdf-${Date.now()}.pdf`
-        await uploadToS3(filename,pdfBuffer,"application/pdf")
+        const fileId=registerGeneratedFile({
+            buffer:pdfBuffer,
+            filename,
+            contentType:"application/pdf",
+            userId:state.userId,
+        })
 
-        const downloadUrl=await getFromS3(filename,24*60)
+        await deductCredits(state.userId,"pdf")
 
         return {
           ...state,
@@ -58,16 +61,16 @@ ${state.prompt}
 
 **${data.title}**
 
-📥 [Download PDF](${downloadUrl})
+📥 [Download PDF](/api/agent/download/${fileId})
 
-_Link expires in 10 minutes._`
+_This temporary download is available for 10 minutes._`
         }
 
     } catch (error) {
-       console.log(error)
+        console.error("PDF agent failed:", error?.code || error?.name || "UnknownError")
          return {
             ...state,
-            aiResponse:error?.data?.message || "Failed to generate pdf due to API error <br> Please try again later",
+            aiResponse:"Failed to generate PDF. Check the agent service logs and try again.",
         }
     }
 }

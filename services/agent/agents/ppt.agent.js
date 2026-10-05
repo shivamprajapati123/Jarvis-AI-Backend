@@ -1,7 +1,6 @@
 import { getModel } from "../config/llmModels.js"
 import { generatePpt } from "../utils/generatePpt.js"
-import { getFromS3 } from "../utils/getFromS3.js"
-import { uploadToS3 } from "../utils/uploadToS3.js"
+import { registerGeneratedFile } from "../utils/generatedFiles.js"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
 export const pptAgent=async (state) => {
@@ -45,7 +44,6 @@ ${state.prompt}`
 
 const res=await llm.invoke(prompt)
 const data=JSON.parse(res.content)
-await deductCredits(state.userId,"ppt")
 const ppt=await generatePpt(data)
 const buffer=await ppt.write({
     outputType:"nodebuffer"
@@ -53,8 +51,13 @@ const buffer=await ppt.write({
 
 const filename=`ppt-${Date.now()}.pptx`
 
-await uploadToS3(filename,buffer,"application/vnd.openxmlformats-officedocument.presentationml.presentation")
-const downloadUrl=await getFromS3(filename,24*60*60)
+const fileId=registerGeneratedFile({
+    buffer,
+    filename,
+    contentType:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    userId:state.userId,
+})
+await deductCredits(state.userId,"ppt")
 
 return {
     ...state,
@@ -62,16 +65,16 @@ return {
 
 **${data.title}**
 
-📥 [Download PPT](${downloadUrl})
+📥 [Download PPT](/api/agent/download/${fileId})
 
-_Link expires in 10 minutes._`
+_This temporary download is available for 10 minutes._`
 }
 
     } catch (error) {
-        console.log(error)
+        console.error("PPT agent failed:", error?.code || error?.name || "UnknownError")
          return {
             ...state,
-            aiResponse:error?.data?.message || "Failed to generate ppt due to API error <br> Please try again later",
+            aiResponse:"Failed to generate presentation. Check the agent service logs and try again.",
         }
        
 
